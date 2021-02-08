@@ -1,0 +1,1046 @@
+---
+title: "GasExchangeData"
+author: "KG"
+date: "January 28, 2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+```
+
+
+```{r}
+
+setwd("C:/Users/kkmgo/Dropbox/Thesis/")
+getwd()
+detach(package:plyr)
+
+eafb<- read.csv("EAFB_CO2Data.csv")
+eafb <- subset(eafb,TEMP.WATER != "NA")
+salinas<- read.csv("Salinas_CO2Data.csv")
+rish<- read.csv("SJP_Rish_CO2Data.csv")
+
+
+library(dplyr)
+
+total.data <- rbind(eafb,rish,salinas)
+names(total.data) <- c("date","time","location","tide","littoral","littoral.temp","berm","berm.temp","dunes","dunes.temp")
+
+
+eafb.means<- eafb %>% group_by(LOCATION,TIDE) %>% summarise(mean.littoral=mean(EFFLUX.WATER,na.rm=T),mean.berm=mean(EFFLUX.MID,na.rm=T),mean.dunes=mean(EFFLUX.DUNES,na.rm=T)) %>% filter(!is.nan(mean.littoral))
+
+eafb.littoral<- eafb.means%>%select(-c(mean.berm,mean.dunes))
+eafb.littoral<-eafb.littoral%>% mutate(beach.zone=rep(c("littoral")))
+names(eafb.littoral) <- c("location","tide","mean.efflux","beach.zone")
+eafb.berm<- eafb.means%>%select(-c(mean.littoral,mean.dunes))
+eafb.berm<-eafb.berm%>% mutate(beach.zone=rep(c("berm")))
+names(eafb.berm) <- c("location","tide","mean.efflux","beach.zone")
+eafb.dunes<- eafb.means%>%select(-c(mean.littoral,mean.berm))
+eafb.dunes<-eafb.dunes %>% mutate(beach.zone=rep(c("dunes")))
+names(eafb.dunes) <- c("location","tide","mean.efflux","beach.zone")
+
+
+
+salinas.means<-salinas %>% group_by(LOCATION,TIDE) %>% summarise(mean.littoral=mean(EFFLUX.WATER,na.rm=T),mean.berm=mean(EFFLUX.MID,na.rm=T),mean.dunes=mean(EFFLUX.DUNES,na.rm=T)) %>% filter(!is.nan(mean.littoral))
+salinas.littoral<- salinas.means%>%select(-c(mean.berm,mean.dunes))
+salinas.littoral<-salinas.littoral%>% mutate(beach.zone=rep(c("littoral")))
+names(salinas.littoral) <- c("location","tide","mean.efflux","beach.zone")
+salinas.berm<- salinas.means%>%select(-c(mean.littoral,mean.dunes))
+salinas.berm<-salinas.berm%>% mutate(beach.zone=rep(c("berm")))
+names(salinas.berm) <- c("location","tide","mean.efflux","beach.zone")
+salinas.dunes<- salinas.means%>%select(-c(mean.littoral,mean.berm))
+salinas.dunes<-salinas.dunes %>% mutate(beach.zone=rep(c("dunes")))
+names(salinas.dunes) <- c("location","tide","mean.efflux","beach.zone")
+
+
+rish.means<-rish %>% group_by(LOCATION,TIDE) %>% summarise(mean.littoral=mean(EFFLUX.WATER,na.rm=T),mean.berm=mean(EFFLUX.MID,na.rm=T),mean.dunes=mean(EFFLUX.DUNES,na.rm=T)) %>% filter(!is.nan(mean.littoral))
+rish.littoral<- rish.means%>%select(-c(mean.berm,mean.dunes))
+rish.littoral<-rish.littoral%>% mutate(beach.zone=rep(c("littoral")))
+names(rish.littoral) <- c("location","tide","mean.efflux","beach.zone")
+rish.berm<- rish.means %>%select(-c(mean.littoral,mean.dunes))
+rish.berm<-rish.berm%>% mutate(beach.zone=rep(c("berm")))
+names(rish.berm) <- c("location","tide","mean.efflux","beach.zone")
+rish.dunes<- rish.means%>%select(-c(mean.littoral,mean.berm))
+rish.dunes<-rish.dunes %>% mutate(beach.zone=rep(c("dunes")))
+names(rish.dunes) <- c("location","tide","mean.efflux","beach.zone")
+
+
+data<-rbind(eafb.means,salinas.means,rish.means)#checks out with total.data.sums and #data.zones
+
+names(data)<-c("location","tide","mean.littoral","mean.berm","mean.dunes")
+
+data <- data %>% group_by(location,tide,mean.littoral,mean.berm,mean.dunes) %>% summarise(tre=sum(mean.littoral+mean.berm+mean.dunes))
+
+data$mean.flux<-rowMeans(data[,3:5])
+
+#data.means<- data %>% group_by(location,tide) %>% summarize(mean.flux = rowMeans(select(mean.littoral,mean.berm,mean.dunes),na.rm=T))
+
+detach(package:dplyr)
+
+library(plyr)
+eafb.zones<-rbind.fill(eafb.littoral,eafb.berm,eafb.dunes)
+salinas.zones<-rbind.fill(salinas.littoral,salinas.berm,salinas.dunes)
+rish.zones<-rbind.fill(rish.littoral,rish.berm,rish.dunes)
+data.zones<-rbind.fill(eafb.zones,salinas.zones,rish.zones) #redundant data set
+
+detach(package:plyr)
+
+library(dplyr)
+data.tre.zone <- data.zones %>% group_by(location,beach.zone) %>% summarize(tre.zone=sum(mean.efflux))
+
+
+namefxn<- function(x) {
+  names(x)<- c("date","time","location","tide","efflux","temp","zone")
+  return(x)
+}
+
+
+
+littoral <- total.data %>% select(c("date","time","location","tide","littoral","littoral.temp")) %>% filter(littoral != "NA") %>% mutate(zone=rep("littoral"))
+
+littoral<- namefxn(littoral)
+
+berm <- total.data %>% select(c("date","time","location","tide","berm","berm.temp")) %>% filter(berm != "NA") %>% mutate(zone=rep("berm"))
+
+berm<- namefxn(berm)
+
+dunes <- total.data %>% select(c("date","time","location","tide","dunes","dunes.temp")) %>% filter(dunes != "NA") %>% mutate(zone=rep("dunes"))
+
+dunes <- namefxn(dunes)
+
+total.data <- rbind(littoral,berm,dunes)
+
+total.data.avg <- total.data %>% group_by(date,location,tide,zone) %>% summarize(efflux=mean(efflux)) 
+
+total.data.sums <- total.data %>% group_by(location,tide,zone) %>% summarize(mean.eff=mean(efflux)) 
+
+total.data.tre <- total.data.sums %>% group_by(location,tide,zone) %>% summarize(tre.zone=sum(mean.eff))
+
+total.data.tre <- total.data.tre %>% group_by(location,zone) %>% summarize(tre.zone=sum(tre.zone))
+
+total.tre <- total.data.tre %>% group_by(location) %>% summarise(tre=sum(tre.zone))
+
+total.data.tre.alt <- total.data.sums %>% group_by(location,zone) %>% summarize(tre.zone=sum(mean.eff))
+
+total.data.means <- total.data.sums %>% group_by(location,zone) %>% summarize(mean.eff=mean(mean.eff))
+
+total.data.tides <- total.data.sums %>% group_by(location,tide) %>% summarise(mean.efflux=mean(mean.eff))
+
+total.data.means$zone <- factor(total.data.means$zone, levels=c("littoral","berm","dunes"))
+
+ci_totaldata <- total.data %>% group_by(location,zone) %>% mutate(upper = mean(efflux) + sd(efflux), lower = mean(efflux) - sd(efflux))
+
+ci_totaldata2 <- total.data %>% group_by(location,zone) %>% mutate(upper = mean(efflux) + sd(efflux), lower = mean(efflux) - sd(efflux))
+
+ci_totaldata <- ci_totaldata %>% select(c("location","zone","upper","lower"))
+
+ci_totaldata <- unique(ci_totaldata)
+
+total.data.means <- merge(total.data.means,ci_totaldata,by=c("location","zone"))
+
+#total.data.sums <- total.data.sums %>% group_by(location) %>% summarize(tre=sum(mean.eff))
+
+```
+
+
+
+```{r stats and models}
+#linear models
+
+library(nlme)
+library(lme4)
+library(car)
+library(rstatix)
+library(ggpubr)
+library(emmeans)
+
+leveneTest(efflux~location,data = total.data)
+
+shapiro.test(subset(total.data,location=="EAFB"& zone=="berm")$efflux)
+
+ggqqplot(data.zones$norm.efflux)
+
+ggqqplot(subset(total.data,location=="EAFB"& zone=="littoral")$efflux) #approximately normal by beach and zone
+
+
+library(dplyr)
+data.zones <- data.zones %>% mutate(norm.efflux = log10(mean.efflux))
+
+data.tre.zone <- data.tre.zone %>% mutate(norm.tre=log10(tre.zone))
+
+data <- data %>% mutate(norm.tre=log10(tre))
+
+total.data <- total.data %>% mutate(norm.efflux=log10(efflux))
+
+#all beaches, all times, all zones
+lm_mean.efflux <- lm(tre.zone~location,data=total.data.tre)#NOT sig
+summary(lm_mean.efflux)
+anova(lm_mean.efflux)
+
+
+lm_tre.sub <- lm(tre.zone~location,data=subset(data.tre.zone,beach.zone!="littoral")) #SIG FOR BERM & DUNES
+summary(lm_tre.sub)
+anova(lm_tre.sub)
+
+emmeans(lm_tre.sub,list(pairwise~location),adjust="tukey")
+
+lm_zones <- lme(mean.efflux~beach.zone, random=~1|tide,data=data.zones) #SIG - berm to lit and dunes to lit are significant
+summary(lm_zones)
+anova(lm_zones)
+
+emmeans(lm_zones,list(pairwise~beach.zone),adjust="tukey")
+
+lm_location <- lme(mean.efflux~location, random=~1|tide,data=data.zones) #SIG anova, but NOT emmeans
+summary(lm_location)
+anova(lm_location)
+
+emmeans(lm_location,list(pairwise~location),adjust="tukey")
+
+
+lm_littoral <- lm(efflux~location,data=subset(total.data,zone=="littoral")) #SIG
+summary(lm_littoral)
+anova(lm_littoral)
+emmeans(lm_littoral,list(pairwise ~ location), adjust = "tukey")
+
+lme_littoral <- lme(efflux~location,random=~1|date,data=subset(total.data,zone=="littoral")) #SIG (0.0524)
+summary(lme_littoral)
+anova(lme_littoral)
+emmeans(lme_littoral,list(pairwise ~ location), adjust = "tukey")#rish-salinas (0.0407)
+
+lm_berms <- lm(efflux~location,data = subset(total.data,zone=="berm")) #SIG
+summary(lm_berms)
+anova(lm_berms)
+emmeans(lm_berms, list(pairwise ~ location), adjust = "tukey")# SIG between Rish-Salinas (0.0051)
+
+lme_berms <- lme(efflux~location,random=~1|date,data = subset(total.data,zone=="berm")) #SIG
+summary(lme_berms)
+anova(lme_berms)
+emmeans(lme_berms, list(pairwise ~ location), adjust = "tukey")# SIG between eafb-Salinas (0.0043), and rish-eafb (0.0004)
+
+lm_dunes <- lm(efflux~location,data = subset(total.data,zone=="dunes")) #SIG, between rish and salinas
+summary(lm_dunes)
+anova(lm_dunes)
+emmeans(lm_dunes, list(pairwise ~ location), adjust = "tukey")
+
+lme_dunes <- lme(efflux~location,random=~1|date,data = subset(total.data,zone=="dunes")) 
+summary(lme_dunes)
+anova(lme_dunes)
+emmeans(lme_dunes, list(pairwise ~ location), adjust = "tukey") #NOT SIG
+
+lme_all <- lme(efflux~location,random=~1|date,data=total.data) #NOT SIG
+summary(lme_all)
+anova(lme_all)
+emmeans(lme_all, list(pairwise ~ location), adjust = "tukey")
+
+lm_all <- lm(efflux~location,data=total.data.avg) #NOT SIG
+summary(lm_all)
+anova(lm_all)
+emmeans(lm_all, list(pairwise ~ location), adjust = "tukey")
+
+lm_subset.all <- lm(efflux~location,data=subset(total.data.avg,zone!="littoral")) #SIG, with and without averaging data
+summary(lm_subset.all)
+anova(lm_subset.all)
+emmeans(lm_subset.all,list(pairwise ~ location), adjust = "tukey")
+
+lme_subset.all <- lme(efflux~location,random=~1|date,data=subset(total.data,zone!="littoral")) #NOT SIG with date as random variable
+summary(lme_subset.all)
+anova(lme_subset.all)
+emmeans(lme_subset.all,list(pairwise ~ location), adjust = "tukey")
+
+lm_zone_tide <- lm(efflux~zone*tide,data = total.data) #SIG, for all with unaveraged data, SIG for zone with averaged data
+summary(lm_zone_tide)
+anova(lm_zone_tide)
+emmeans(lm_zone_tide,list(pairwise~zone),adjust="tukey")
+emmeans(lm_zone_tide,list(pairwise~tide*zone),adjust="tukey")
+emmeans(lm_zone_tide,list(pairwise~tide),adjust="tukey")
+
+lme_zone_tide <- lme(efflux~zone*tide,random=~1|date,data = total.data) #SIG, with date as random variable
+summary(lme_zone_tide)
+anova(lme_zone_tide)
+emmeans(lme_zone_tide,list(pairwise~zone),adjust="tukey")#berm-litt and dune-litt are sig (<0.0001)
+emmeans(lme_zone_tide,list(pairwise~tide*zone),adjust="tukey")
+
+lm_tide <- lm(efflux~tide,data = total.data)
+summary(lm_tide)
+anova(lm_tide)
+emmeans(lm_tide,list(pairwise~tide),adjust="tukey")
+
+lm_zone_eafb <- lm(efflux~zone*tide,data = subset(total.data,location=="EAFB"))
+summary(lm_zone_eafb)
+anova(lm_zone_eafb)
+emmeans(lm_zone_eafb,list(pairwise~zone),adjust="tukey")
+emmeans(lm_zone_eafb,list(pairwise~zone*tide),adjust="tukey")
+emmeans(lm_zone_eafb,list(pairwise~tide),adjust="tukey")
+
+lm_zone_sal <- lm(efflux~zone*tide,data = subset(total.data,location=="Salinas"))
+summary(lm_zone_sal)
+anova(lm_zone_sal)
+emmeans(lm_zone_sal,list(pairwise~zone*tide),adjust="tukey")
+emmeans(lm_zone_sal,list(pairwise~tide),adjust="tukey")
+
+lm_zone_rish <- lm(efflux~zone*tide,data = subset(total.data,location=="SJP-Rish"))
+summary(lm_zone_rish)
+anova(lm_zone_rish)
+emmeans(lm_zone_rish,list(pairwise~zone),adjust="tukey")
+
+
+levels(total.data$tide) <- c("low","2 < low","2 > low","high","2 > high","2 < high")
+
+levels(total.data$location) <- c("EAFB","Salinas","SJP-Rish")
+
+data <- data %>% arrange(location)
+
+sd(subset(total.data,location=="SJP-Rish")$efflux)
+sd(subset(total.data,location=="Salinas")$efflux)
+sd(subset(total.data,location=="EAFB")$efflux)
+
+eafb_total<- total.data %>% filter(location=="EAFB")
+
+sd(subset(eafb_total,zone=="littoral")$efflux)
+sd(subset(eafb_total,zone=="dunes")$efflux,na.rm=T)
+sd(subset(eafb_total,zone=="berm")$efflux,na.rm=T)
+
+sd_values <-total.data %>% group_by(location,zone) %>% summarize(sd=sd(efflux))
+
+#t-test comparisons of EAFB and Salinas
+
+t.test(efflux~location,subset(total.data,location!="SJP-Rish"))
+
+t.test(efflux~location,subset(littoral,location!="SJP-Rish"))
+
+t.test(efflux~location,subset(berm,location!="SJP-Rish"))
+
+t.test(efflux~location,subset(dunes,location!="SJP-Rish"))
+
+#t-test comparisons of EAFB and Rish
+
+t.test(efflux~location,subset(total.data,location!="Salinas"))
+
+t.test(efflux~location,subset(littoral,location!="Salinas"))
+
+t.test(efflux~location,subset(berm,location!="Salinas"))
+
+t.test(efflux~location,subset(dunes,location!="Salinas"))
+
+pairwise.t.test(efflux~location,total.data)
+
+
+```
+
+
+```{r plots}
+library(ggplot2)
+library(ggpubr)
+library(extrafont)
+library(RColorBrewer)
+
+plot<-ggplot(data,aes(x=tide,y=mean.flux,color=location))+
+  #geom_point(aes(size=1))+
+  geom_smooth(aes(group=location),size=2, se=FALSE)+
+  scale_color_manual(name="Beach",labels=c("EAFB-CSB","Salinas","Rish"),values=c("steelblue3","darkolivegreen4","coral"))+
+  theme_bw()+
+  theme(text=element_text(size=15,color="black",family="Calibri"),axis.text = element_text(color="black",size=14,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  scale_x_discrete(limits=c("2 < low","low","2 > low", "2 < high", "high", "2 > high"),name="Tidal Cycle")+scale_y_continuous(name="Mean CO2 Flux",breaks=c(0.00,0.5,1.0,1.5,2.0),limits=c(0.00,2.00))+theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  #ggtitle("Mean CO2 Flux Across Locations")+
+  theme(plot.title = element_text(size=24,hjust = 0.5,margin = margin(t = 20, r = 0, b = 20, l = 0))) + 
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+  scale_size_continuous(guide=FALSE)
+plot
+
+littoral.plot<-ggplot(data,aes(x=tide,y=mean.littoral,color=location))+
+  #geom_point(aes(size=1))+
+  geom_smooth(aes(group=location),size=2, se=FALSE)+
+  scale_color_manual(name="Beach",labels=c("EAFB-CSB","Salinas","Rish"),values=c("steelblue3","darkolivegreen4","coral"))+
+  theme_bw()+
+  theme(text=element_text(size=15,color="black",family="Calibri"),axis.text = element_text(color="black",size=14,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  scale_x_discrete(limits=c("2 < low","low","2 > low", "2 < high", "high", "2 > high"),name="Tidal Cycle")+scale_y_continuous(name="Mean CO2 Flux",breaks=c(0.00,0.5,1.0,1.5,2.0),limits=c(0.00,2.00))+theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  #ggtitle("Mean CO2 Flux Across Locations")+
+  theme(plot.title = element_text(size=24,hjust = 0.5,margin = margin(t = 20, r = 0, b = 20, l = 0))) + 
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+  scale_size_continuous(guide=FALSE)
+  #theme(legend.position = "none")
+littoral.plot
+
+berm.plot<-ggplot(data,aes(x=tide,y=mean.berm,color=location))+
+  #geom_point(aes(size=1))+
+  geom_smooth(aes(group=location),size=2, se=FALSE)+
+  scale_color_manual(name="Beach",labels=c("EAFB-CSB","Salinas","Rish"),values=c("steelblue3","darkolivegreen4","coral"))+
+  theme_bw()+
+  theme(text=element_text(size=15,color="black",family="Calibri"),axis.text = element_text(color="black",size=14,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  scale_x_discrete(limits=c("2 < low","low","2 > low", "2 < high", "high", "2 > high"),name="Tidal Cycle")+scale_y_continuous(name="Mean CO2 Flux",breaks=c(0.00,0.5,1.0,1.5,2.0),limits=c(0.00,2.00))+theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  #ggtitle("Mean CO2 Flux Across Locations")+
+  theme(plot.title = element_text(size=24,hjust = 0.5,margin = margin(t = 20, r = 0, b = 20, l = 0))) + 
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+  scale_size_continuous(guide=FALSE)+
+   theme(legend.position = "none")
+berm.plot
+
+dunes.plot<-ggplot(data,aes(x=tide,y=mean.dunes,color=location))+
+  #geom_point(aes(size=1))+
+  geom_smooth(aes(group=location),size=2, se=FALSE)+
+  scale_color_manual(name="Beach",labels=c("EAFB-CSB","Salinas","Rish"),values=c("steelblue3","darkolivegreen4","coral"))+
+  theme_bw()+
+  theme(text=element_text(size=15,color="black",family="Calibri"),axis.text = element_text(color="black",size=14,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  scale_x_discrete(limits=c("2 < low","low","2 > low", "2 < high", "high", "2 > high"),name="Tidal Cycle")+scale_y_continuous(name="Mean CO2 Flux",breaks=c(0.00,0.5,1.0,1.5,2.0),limits=c(0.00,2.00))+theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  #ggtitle("Mean CO2 Flux Across Locations")+
+  theme(plot.title = element_text(size=24,hjust = 0.5,margin = margin(t = 20, r = 0, b = 20, l = 0))) + 
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+  scale_size_continuous(guide=FALSE)+
+   theme(legend.position = "none")
+dunes.plot
+
+eafb.plot<-ggplot(eafb.zones,aes(x=tide,y=mean.efflux,color=beach.zone))+
+  #geom_point(aes(size=2))+
+  geom_smooth(aes(group=beach.zone,size=1.5,se=FALSE))+
+  scale_colour_manual(name="Beach Zone",labels=c("littoral","berm","dunes"),values=c("midnightblue","slategrey","steelblue4"))+
+  theme_bw()+
+  theme(text=element_text(size=13,color="black",family="Calibri"),axis.text = element_text(color="black",size=12,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  scale_x_discrete(limits=c("2 < low","low","2 > low", "2 < high", "high", "2 > high"),name="Tidal Cycle")+
+  scale_y_continuous(name="Mean CO2 Flux",breaks=c(0.00,0.5,1.0,1.5,2.0),limits=c(0.00,2.00))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+  #ggtitle("Rish\nMean CO2 Flux Across Beach Zones")+
+  theme(plot.title = element_text(size=24,hjust = 0.5,margin = margin(t = 20, r = 0, b = 20, l = 0))) + 
+  scale_size_continuous(guide=FALSE)
+eafb.plot
+
+salinas.plot<-ggplot(salinas.zones,aes(x=tide,y=mean.efflux,color=beach.zone))+
+  geom_point(aes(size=2))+
+  geom_line(aes(group=beach.zone,size=1.5))+
+  scale_colour_manual(name="Beach Zone",labels=c("littoral","berm","dunes"),values=c("midnightblue","slategrey","steelblue4"))+
+  theme_bw()+
+  theme(text=element_text(size=13,color="black",family="Calibri"),axis.text = element_text(color="black",size=12,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  scale_x_discrete(limits=c("2 < low","low","2 > low", "2 < high", "high", "2 > high"),name="Tidal Cycle")+
+  scale_y_continuous(name="Mean CO2 Flux",breaks=c(0.00,0.5,1.0,1.5,2.0),limits=c(0.00,2.00))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+  #ggtitle("Rish\nMean CO2 Flux Across Beach Zones")+
+  theme(plot.title = element_text(size=24,hjust = 0.5,margin = margin(t = 20, r = 0, b = 20, l = 0))) + 
+  scale_size_continuous(guide=FALSE)
+salinas.plot
+
+rish.plot<-ggplot(rish.zones,aes(x=tide,y=mean.efflux,color=beach.zone))+
+  geom_point(aes(size=2))+
+  geom_line(aes(group=beach.zone,size=1.5))+
+  scale_colour_manual(name="Beach Zone",labels=c("littoral","berm","dunes"),values=c("midnightblue","slategrey","steelblue4"))+
+  theme_bw()+
+  theme(text=element_text(size=13,color="black",family="Calibri"),axis.text = element_text(color="black",size=12,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  scale_x_discrete(limits=c("2 < low","low","2 > low", "2 < high", "high", "2 > high"),name="Tidal Cycle")+
+  scale_y_continuous(name="Mean CO2 Flux",breaks=c(0.00,0.5,1.0,1.5,2.0),limits=c(0.00,2.00))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+  #ggtitle("Rish\nMean CO2 Flux Across Beach Zones")+
+  theme(plot.title = element_text(size=24,hjust = 0.5,margin = margin(t = 20, r = 0, b = 20, l = 0))) + 
+  scale_size_continuous(guide=FALSE)
+rish.plot
+
+
+littoral.plot<-ggplot(subset(data.zones,beach.zone=="littoral"))+
+  geom_point(aes(x=tide,y=mean.efflux,color=location,size=2))+
+  geom_line(aes(x=tide,y=mean.efflux,group=location,color=location,size=1.5))+
+  scale_color_manual(name="Beach",labels=c("EAFB","Salinas","Rish"),values=c("grey19","grey36","grey59"))+
+  theme_bw()+
+  theme(text=element_text(size=13,color="black",family="Calibri"),axis.text = element_text(color="black",size=12,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  scale_x_discrete(limits=c("2 < low","low","2 > low", "2 < high", "high", "2 > high"),name="Tidal Cycle")+
+  scale_y_continuous(name="Mean CO2 Flux",breaks=c(0.00,0.5,1.0,1.5,2.0),limits=c(0.00,2.00))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  #ggtitle("Mean CO2 Flux in Littoral Zone\nAcross Locations")+
+  theme(plot.title = element_text(size=24,hjust = 0.5,margin = margin(t = 20, r = 0, b = 20, l = 0))) + 
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+  scale_size_continuous(guide=FALSE)
+littoral.plot
+
+
+berm.plot<-ggplot(subset(data.zones,beach.zone %in% c("berm")))+
+  geom_point(aes(x=tide,y=mean.efflux,color=location,size=2))+
+  geom_line(aes(x=tide,y=mean.efflux,group=location,color=location,size=1.5))+
+  scale_color_manual(name="Beach",labels=c("EAFB","Salinas","Rish"),values=c("grey19","grey36","grey59"))+
+  theme_bw()+
+  theme(text=element_text(size=13,color="black",family="Calibri"),axis.text = element_text(color="black",size=12,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  scale_x_discrete(limits=c("2 < low","low","2 > low", "2 < high", "high", "2 > high"),name="Tidal Cycle")+
+  scale_y_continuous(name="Mean CO2 Flux",breaks=c(0.00,0.5,1.0,1.5,2.0),limits=c(0.00,2.00))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  #ggtitle("Mean CO2 Flux in Berm Zone\nAcross Locations")+
+  theme(plot.title = element_text(size=24,hjust = 0.5,margin = margin(t = 20, r = 0, b = 20, l = 0))) + 
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+  scale_size_continuous(guide=FALSE)
+berm.plot
+
+
+dune.plot<-ggplot(subset(data.zones,beach.zone %in% c("dunes")))+
+  geom_point(aes(x=tide,y=mean.efflux,color=location,size=2))+
+  geom_line(aes(x=tide,y=mean.efflux,group=location,color=location,size=1.5))+
+  scale_color_manual(name="Beach",labels=c("EAFB-CSB","Salinas","Rish"),values=c("grey19","grey36","grey59"))+
+  theme_bw()+
+  theme(text=element_text(size=13,color="black",family="Calibri"),axis.text = element_text(color="black",size=12,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  scale_x_discrete(limits=c("2 < low","low","2 > low", "2 < high", "high", "2 > high"),name="Tidal Cycle")+
+  scale_y_continuous(name="Mean CO2 Flux",breaks=c(0.00,0.5,1.0,1.5,2.0),limits=c(0.00,2.00))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  #ggtitle("Mean CO2 Flux in Berm Zone\nAcross Locations")+
+  theme(plot.title = element_text(size=24,hjust = 0.5,margin = margin(t = 20, r = 0, b = 20, l = 0))) + 
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+  scale_size_continuous(guide=FALSE)
+dune.plot
+  
+
+annotation_df1 <- data.frame(location=rep(c("EAFB-CSB","Rish","Salinas")),
+                            y=c(2,2,2,2.5,2.5,2.5))
+
+#annotation_df2 <- data.frame(field.type=rep(c("conditioned","control")),
+                            y=c(0.47,0.47))
+
+#annotation_df3 <- data.frame(field.type=rep(c("control","control")),
+                            y=c(0.47,0.45))
+
+
+total.data$location <- ifelse(location=="EAFB","EAFB-CSB",location)
+
+boxplot_sig <- ggplot(subset(total.data,zone!="littoral"),aes(x=location,y=efflux))+
+  geom_boxplot()+
+  theme_bw()+
+  theme(text=element_text(size=13,color="black",family="Calibri"),axis.text = element_text(color="black",size=12,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  scale_y_continuous(name="Mean CO2 Flux")+
+  scale_x_discrete(name="Beach",labels=c("EAFB-CSB", "Rish","Salinas"))+
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+  geom_segment(data=annotation_df1,aes(x="EAFB",xend="EAFB",y=1.5,yend=2))+
+  geom_segment(data=annotation_df1,aes(x="EAFB",xend="Salinas",y=2,yend=2))+
+  geom_segment(data=annotation_df1,aes(x="Salinas",xend="Salinas",y=2,yend=1.5))+
+   annotate("text",x = c(2),y = c(2.2),label = c("p = 0.029"),family = "", fontface = 3, size=4)+
+   geom_segment(data=annotation_df1,aes(x="SJP-Rish",xend="SJP-Rish",y=3,yend=3.5))+
+  geom_segment(data=annotation_df1,aes(x="SJP-Rish",xend="Salinas",y=3.5,yend=3.5))+
+  geom_segment(data=annotation_df1,aes(x="Salinas",xend="Salinas",y=3.5,yend=3))+
+   annotate("text",x = c(2.5),y = c(3.7),label = c("p = 0.0001"),family = "", fontface = 3, size=4)
+  
+boxplot_sig
+
+total.data.sums <- total.data.sums %>% arrange(location)
+
+total.data.sums$location  <- factor(total.data.sums$location, levels=c("EAFB", "Salinas", "SJP-Rish"))
+
+
+
+tre_plot <- ggplot(data = total.data.tre.alt, aes(x=location, y=tre.zone))+
+  stat_summary(fun.y= sum,geom="bar",color="grey",fill=c("steelblue3","coral","darkolivegreen4"))+
+   #stat_summary(fun.y=sum,fun.ymin = function(x) sum(x)-sd(x)/length(x),fun.ymax = function(x) sum(x) + sd(x)/length(x),geom="errorbar",color="black")+
+  theme_bw()+
+  theme(text=element_text(size=15,color="black",family="Calibri"),axis.text = element_text(color="black",size=14,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  scale_y_continuous(name="Total Relative Efflux",expand=c(0,0))+
+  coord_cartesian(ylim=c(0,12))+
+  scale_x_discrete(name="Beach",labels=c("EAFB-CSB","Rish","Salinas"))+
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+  annotate("text",x = c(1),y = c(9.55),label = c("9.14"),family = "", fontface = 3, size=4)+
+  annotate("text",x = c(2),y = c(8),label = c("7.64"),family = "", fontface = 3, size=4)+
+  annotate("text",x = c(3),y = c(11.15),label = c("10.72"),family = "", fontface = 3, size=4)
+tre_plot
+
+
+boxplot_lit <- ggplot(subset(total.data,zone=="littoral"),aes(x=location,y=efflux))+
+  geom_boxplot()+
+  theme_bw()+
+  theme(text=element_text(size=13,color="black",family="Calibri"),axis.text = element_text(color="black",size=12,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  scale_y_continuous(name="Mean CO2 Flux",limits=c(0,5), breaks = c(0,1,2,3,4,5))+
+  scale_x_discrete(name="Beach",labels=c("EAFB-CSB", "Rish","Salinas"))+
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+  geom_segment(data=annotation_df1,aes(x="EAFB",xend="EAFB",y=2.5,yend=3))+
+  geom_segment(data=annotation_df1,aes(x="EAFB",xend="Salinas",y=3,yend=3))+
+  geom_segment(data=annotation_df1,aes(x="Salinas",xend="Salinas",y=3,yend=2.5))+
+   annotate("text",x = c(2),y = c(3.2),label = c("p = 0.0493"),family = "", fontface = 3, size=4)+
+   geom_segment(data=annotation_df1,aes(x="SJP-Rish",xend="SJP-Rish",y=4,yend=4.5))+
+  geom_segment(data=annotation_df1,aes(x="SJP-Rish",xend="Salinas",y=4.5,yend=4.5))+
+  geom_segment(data=annotation_df1,aes(x="Salinas",xend="Salinas",y=4.5,yend=4))+
+   annotate("text",x = c(2.5),y = c(4.7),label = c("p = 0.0178"),family = "", fontface = 3, size=4)
+  
+boxplot_lit
+
+
+boxplot_berm <- ggplot(subset(total.data,zone=="berm"),aes(x=location,y=efflux))+
+  geom_boxplot()+
+  theme_bw()+
+  theme(text=element_text(size=13,color="black",family="Calibri"),axis.text = element_text(color="black",size=12,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  scale_y_continuous(name="Mean CO2 Flux",limits=c(0,5), breaks = c(0,1,2,3,4,5))+
+  scale_x_discrete(name="Beach",labels=c("EAFB-CSB", "Rish","Salinas"))+
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+  #geom_segment(data=annotation_df1,aes(x="EAFB",xend="EAFB",y=2.5,yend=3))+
+  #geom_segment(data=annotation_df1,aes(x="EAFB",xend="Salinas",y=3,yend=3))+
+  #geom_segment(data=annotation_df1,aes(x="Salinas",xend="Salinas",y=3,yend=2.5))+
+   #annotate("text",x = c(2),y = c(3.2),label = c("p = 0.0493"),family = "", fontface = 3, size=4)+
+   geom_segment(data=annotation_df1,aes(x="SJP-Rish",xend="SJP-Rish",y=2,yend=2.5))+
+  geom_segment(data=annotation_df1,aes(x="SJP-Rish",xend="Salinas",y=2.5,yend=2.5))+
+  geom_segment(data=annotation_df1,aes(x="Salinas",xend="Salinas",y=2.5,yend=2))+
+   annotate("text",x = c(2.5),y = c(2.7),label = c("p = 0.0051"),family = "", fontface = 3, size=4)
+  
+boxplot_berm
+
+boxplot_dunes <- ggplot(subset(total.data,zone=="dunes"),aes(x=location,y=efflux))+
+  geom_boxplot()+
+  theme_bw()+
+  theme(text=element_text(size=13,color="black",family="Calibri"),axis.text = element_text(color="black",size=12,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  scale_y_continuous(name="Mean CO2 Flux",limits=c(0,5), breaks = c(0,1,2,3,4,5))+
+  scale_x_discrete(name="Beach",labels=c("EAFB-CSB", "Rish","Salinas"))+
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+  #geom_segment(data=annotation_df1,aes(x="EAFB",xend="EAFB",y=2.5,yend=3))+
+  #geom_segment(data=annotation_df1,aes(x="EAFB",xend="Salinas",y=3,yend=3))+
+  #geom_segment(data=annotation_df1,aes(x="Salinas",xend="Salinas",y=3,yend=2.5))+
+   #annotate("text",x = c(2),y = c(3.2),label = c("p = 0.0493"),family = "", fontface = 3, size=4)+
+   geom_segment(data=annotation_df1,aes(x="SJP-Rish",xend="SJP-Rish",y=2,yend=2.5))+
+  geom_segment(data=annotation_df1,aes(x="SJP-Rish",xend="Salinas",y=2.5,yend=2.5))+
+  geom_segment(data=annotation_df1,aes(x="Salinas",xend="Salinas",y=2.5,yend=2))+
+   annotate("text",x = c(2.5),y = c(2.7),label = c("p = 0.017"),family = "", fontface = 3, size=4)
+  
+boxplot_dunes
+
+
+
+total.data$zone <- factor(total.data$zone,levels=c("littoral","berm","dunes"))
+
+annotation_df2 <- data.frame(location=rep(c("littoral","berm","dunes")),
+                            y=c(3,3,3,3,3,3))
+
+boxplot_zones <- ggplot(subset(total.data),aes(x=zone,y=efflux))+
+  geom_boxplot()+
+  theme_bw()+
+  theme(text=element_text(size=13,color="black",family="Calibri"),axis.text = element_text(color="black",size=12,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  scale_y_continuous(name="Mean CO2 Flux",limits=c(0,5), breaks = c(0,1,2,3,4,5))+
+  scale_x_discrete(name="Zone")+
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+geom_segment(data=annotation_df2,aes(x="littoral",xend="littoral",y=3.1,yend=3.5))+
+  geom_segment(data=annotation_df2,aes(x="littoral",xend="berm",y=3.5,yend=3.5))+
+  geom_segment(data=annotation_df2,aes(x="berm",xend="berm",y=3.5,yend=3.1))+
+   annotate("text",x = c(1.5),y = c(3.7),label = c("p < 0.001"),family = "", fontface = 3, size=4)+
+   geom_segment(data=annotation_df2,aes(x="littoral",xend="littoral",y=4.1,yend=4.5))+
+  geom_segment(data=annotation_df2,aes(x="littoral",xend="dunes",y=4.5,yend=4.5))+
+  geom_segment(data=annotation_df2,aes(x="dunes",xend="dunes",y=4.5,yend=4.1))+
+   annotate("text",x = c(2),y = c(4.7),label = c("p < 0.001"),family = "", fontface = 3, size=4)
+  
+boxplot_zones
+
+annotation_df3 <- data.frame(location=rep(c("2 < low","low","2 > low","2 < high","high","2 > high")),y=c(3,3,3,3,3,3))
+
+total.data$tide <- factor(total.data$tide,levels=c("2 < low","low","2 > low","2 < high","high","2 > high"))
+
+boxplot_tides <- ggplot(subset(total.data),aes(x=tide,y=efflux))+
+  geom_boxplot()+
+  theme_bw()+
+  theme(text=element_text(size=13,color="black",family="Calibri"),axis.text = element_text(color="black",size=12,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  scale_y_continuous(name="Mean CO2 Flux",limits=c(0,5), breaks = c(0,1,2,3,4,5))+
+  scale_x_discrete(name="Tide")+
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),panel.border = element_blank(),axis.line = element_line(color="black"))+
+geom_segment(data=annotation_df3,aes(x="2 < low",xend="2 < low",y=4.1,yend=4.5))+
+  geom_segment(data=annotation_df3,aes(x="2 < low",xend="2 < high",y=4.5,yend=4.5))+
+  geom_segment(data=annotation_df3,aes(x="2 < high",xend="2 < high",y=4.5,yend=4.1))+
+   annotate("text",x = c(2.5),y = c(4.7),label = c("p = 0.033"),family = "", fontface = 3, size=4)+
+   geom_segment(data=annotation_df3,aes(x="2 > low",xend="2 > low",y=1.5,yend=2.0))+
+  geom_segment(data=annotation_df3,aes(x="2 > low",xend="2 < high",y=2,yend=2))+
+  geom_segment(data=annotation_df3,aes(x="2 < high",xend="2 < high",y=2,yend=1.5))+
+   annotate("text",x = c(3.5),y = c(2.2),label = c("p = 0. 012"),family = "", fontface = 3, size=4)
+  
+boxplot_tides
+
+
+
+  
+```
+
+
+```{r}
+beach<-c("EAFB-CSB","EAFB-CSB","Salinas","Salinas","Rish","Rish")
+counts <-c(1868,3447,2241,4342,4260,3625)
+survivorship <- c("hatched","failed","hatched","failed","hatched","failed")
+hatchdata<-cbind(beach,counts,survivorship)
+hatchdata<-as.data.frame(hatchdata)
+hatchdata$counts<- (as.character(hatchdata$counts))
+hatchdata$counts<- (as.numeric(hatchdata$counts))
+
+hatch14 <- read.csv("C:/Users/kkmgo/Dropbox/Thesis/HatchingData2014_AllBeaches_AllZones.csv",header=TRUE)
+
+hatch14 <- hatch14 %>% mutate(zone= ifelse(section=="seaward","littoral",ifelse(section=="mid","berm","dunes")))
+
+hatch14%>% 
+  group_by(zone) %>% 
+  summarise(record_count = n())
+
+hatch14 %>% count(section!="littoral")
+
+hatch14 %>% count(section=="littoral")
+
+3/82*100 #3% of nests in littoral zone
+
+hatch14 %>% filter(zone=="littoral")
+
+hatch14 %>% filter(zone=="berm")
+
+hatch14 %>% filter(zone=="dunes")
+
+hatch14$success <- as.numeric(as.character(hatch14$success))
+
+hatch14$laid <- as.numeric(as.character(hatch14$laid))
+
+hatch14$emerged <- as.numeric(as.character(hatch14$emerged))
+
+hatch14$hatched <- as.numeric(as.character(hatch14$hatched))
+
+hatch14 <- hatch14 %>% drop_na()
+
+hatch14_sums <- hatch14 %>% group_by(location, zone) %>% summarize(total.laid=sum(laid),total.emerged=sum(emerged),total.hatched=sum(hatched),mean.success=mean(success))
+
+hatch14_sums <- hatch14_sums %>% mutate(total.success=total.emerged/total.laid*100)
+
+hatch14_sums <- hatch14_sums %>% mutate(total.failed=total.laid-total.emerged)
+
+library(dplyr)
+hatch14_all <- hatch14  %>% group_by(location) %>% summarize(total.laid=sum(laid),total.emerged=sum(emerged),total.hatched=sum(hatched),mean.success=mean(success)) %>% mutate(total.success=total.emerged/total.laid*100)
+
+hatch14_all <- hatch14_all %>% mutate(total.failed=total.laid-total.emerged)
+
+
+
+#eafb, rish,sal -- hatch,fail
+hatch14_freq <- matrix(c(1373,914,1512,1843,784,1301),nrow=2,ncol=3)
+
+chisq.test(hatch14_freq)
+
+eafb14_freq <- matrix(c(302,305,1071,609),nrow=2,ncol=2)
+chisq.test(eafb14_freq)
+
+
+sal14_freq <- matrix(c(182,624,602,677),nrow=2,ncol=2)
+chisq.test(sal14_freq)
+
+rish14_freq <- matrix(c(150,93,301,779,1061,971),nrow=2,ncol=3)
+chisq.test(rish14_freq)
+
+berm_freq <- matrix(c(302,305,301,779,182,624),nrow=2,ncol=3)
+chisq.test(berm_freq)
+
+dune_freq <- matrix(c(1071,609,1061,971,602,677),nrow=2,ncol=3)
+chisq.test(dune_freq)
+
+hatchlm <- lm(success~mean.eff*zone,data=hatch14)
+summary(hatchlm)
+anova(hatchlm)
+
+library(tidyr)
+library(dplyr)
+
+table(hatchdata$survivorship,hatchdata$counts)
+
+print(table)
+
+obsfreq <- matrix(c(1868,3447,2241,4342,4260,3625),nrow=2,ncol=3)
+
+print(obsfreq)
+
+chisq.test(obsfreq) #sig x^2=739.61 and df=2 and p-val < 2.2 e-16
+
+hatch_totals <- hatchdata %>% group_by(beach) %>% summarise(totalcount=sum(counts))
+survivors <- hatchdata %>% filter(survivorship=="hatched")
+
+hatch_prop <- merge(hatch_totals,survivors,by="beach")
+
+hatch_prop<- hatch_prop %>% mutate(prop.survived=counts/totalcount)
+
+failed <- hatchdata %>% filter(survivorship=="failed")
+names(failed) <- c("beach","failed count","survivorship code")
+
+hatch_prop <- merge(hatch_prop,failed,by="beach")
+
+hatch_prop <- hatch_prop %>% mutate(prop.failed=`failed count`/totalcount)
+
+hatch_prop <- hatch_prop %>% mutate
+
+chisq.test(hatch_prop$prop.survived)
+
+obs_sal_eafb <- matrix(c(2241,4342,1868,3447), nrow=2,ncol=2)
+print(obs_sal_eafb)
+
+chisq.test(obs_sal_eafb)#not sig
+
+obs_sal_rish <- matrix(c(2241,4342,4260,3625),nrow=2,ncol=2)
+
+chisq.test(obs_sal_rish)#sig
+
+obs_rish_eafb <- matrix(c(4260,3625,1868,3447),nrow=2,ncol=2)
+
+chisq.test(obs_rish_eafb)#sig
+
+pairwise.t.test(prop.survived, beach, data=hatch_prop)
+
+#hatch_dt <- as.table(as.matrix(hatchdata))
+class(hatchdata$counts)
+table(hatchdata$survivorship,hatchdata$beach)
+
+lm_hatch <- lm(prop.survived~beach,data=hatch_prop)
+anova(lm_hatch)
+emmeans(lm_hatch,list(pairwise ~ beach), adjust = "tukey")
+
+t.test(prop.survived~beach,data=subset(hatch_prop,beach!="EAFB-CSB"))
+
+
+
+chisq.test(table)
+
+```
+
+```{r}
+
+library(ggplot2)
+
+hatch.plot<-ggplot(hatchdata,aes(x=survivorship,y=counts,fill=survivorship))+
+  geom_bar(stat='identity')+
+  facet_wrap(.~beach)+
+  scale_fill_manual(name="Survivorship",labels=c("Failed","Hatched"),values=c("grey10","grey60"))+
+  theme_bw()+
+  scale_y_continuous(expand = c(0,0),limits = c(0,4500))+
+  theme(text=element_text(size=14,color="black",family="Calibri"),axis.text = element_text(color="black",size=13,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  #ggtitle("Hatching Success Across Beaches")+
+  theme(plot.title = element_text(size=24,hjust = 0.5,margin = margin(t = 20, r = 0, b = 20, l = 0)))+
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),axis.line = element_line(color="black"))+
+  labs(x="Survivorship",y="Egg Counts") +
+  #theme(strip.background =element_rect(fill=c("midnightblue","slategrey","steelblue4")))+
+  theme(strip.text = element_text(colour = 'white',size=14))
+hatch.plot
+
+library(ggpubr)
+library(tidyr)
+library(grid)
+g <- ggplot_gtable(ggplot_build(hatch.plot))
+striprt <- which(grepl('strip-t', g$layout$name))
+fills <- c("steelblue3","coral","darkolivegreen4")
+k <- 1
+for (i in striprt) {
+  j <- which(grepl('rect', g$grobs[[i]]$grobs[[1]]$childrenOrder))
+  g$grobs[[i]]$grobs[[1]]$children[[j]]$gp$fill <- fills[k]
+  k <- k+1
+}
+grid::grid.draw(g)
+
+
+
+
+hatch14_sums <- merge(hatch14_sums,total.data.means, by=c("location","zone"))
+
+total.data.means.lit <- total.data.means %>% filter(zone=="littoral")
+
+total.data.means.lit <- total.data.means.lit %>% mutate(total.laid=rep(0),total.emerged=rep(0),total.hatched=rep(0),mean.success=rep(0),total.success=rep(NA)) 
+
+total.data.means.lit <- total.data.means.lit %>% filter(location != "SJP-Rish")
+
+hatch14_sums <- rbind(hatch14_sums,total.data.means.lit)
+
+hatch14_sums <- hatch14_sums %>% mutate(lower=ifelse(lower<0,0,lower))
+
+hatch14_sums <- merge(hatch14_sums,total.data.tre.alt,by=c("location","zone"))
+
+hatch14_sums$zone <- factor(hatch14_sums$zone, levels=c("littoral","berm","dunes"))
+
+hatch14_sums$location <- factor(hatch14_sums$location, levels=c("EAFB","SJP-Rish","Salinas"),labels = c("EAFB-CSB","Rish","Salinas"))
+
+hatch.plot2<-ggplot(hatch14_sums,aes(x=zone,y=total.success,fill=zone))+
+  geom_col(stat = "identity")+
+  geom_point(aes(x=zone,y=mean.eff*20),shape=15,size=3,color="navyblue")+
+  geom_errorbar(aes(ymin=lower*20,ymax=upper*20))+
+  geom_point(aes(y=tre.zone*20),color="salmon4",shape=15,size=3)+
+  #geom_line(data=total.data.means,aes(x=zone,y=mean.eff*100),group=1)+
+  #stat_summary(fun.y= function (x) mean(x) ,geom="bar")+
+  #stat_summary(data=total.data.means,fun.y=mean,fun.ymin = function(x) mean(x)-sd(x)/length(x),fun.ymax = function(x) 
+    #mean(x) + sd(x)/length(x),geom="errorbar",color="black")+
+  facet_grid(.~location)+
+  scale_fill_manual(name="Beach Zone",labels=c("Littoral","Berm","Dunes"),values=c("darkslategray4","darkseagreen3","burlywood3"))+
+  theme_bw()+
+  #coord_trans(y="sqrt")+
+  scale_y_continuous(expand = c(0,0),limits = c(0,125),sec.axis = sec_axis(~./20, name = "CO2 Efflux"))+
+  theme(text=element_text(size=14,color="black",family="Calibri"),axis.text = element_text(color="black",size=13,family="Calibri"),axis.text.x = element_text(angle=45,hjust=1))+
+  theme(axis.title.y.left = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)),
+        axis.title.y.right = element_text(margin = margin(t = 0, r = 0, b = 0, l = 20)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  #ggtitle("Hatching Success Across Beaches")+
+  theme(plot.title = element_text(size=24,hjust = 0.5,margin = margin(t = 20, r = 0, b = 20, l = 0)))+
+  theme(panel.grid.minor = element_blank(),panel.grid.major = element_blank(),axis.line = element_line(color="black"))+
+  labs(x="Beach Zones",y="Hatching Success") +
+  #theme(strip.background =element_rect(fill=c("midnightblue","slategrey","steelblue4")))+
+  theme(strip.text = element_text(colour = 'white',size=14),
+        legend.position = "bottom")+
+  guides(color=FALSE,size=FALSE,shape=FALSE)
+hatch.plot2
+
+
+g <- ggplot_gtable(ggplot_build(hatch.plot2))
+striprt <- which(grepl('strip-t', g$layout$name))
+fills <- c("steelblue3","coral","darkolivegreen4")
+k <- 1
+for (i in striprt) {
+  j <- which(grepl('rect', g$grobs[[i]]$grobs[[1]]$childrenOrder))
+  g$grobs[[i]]$grobs[[1]]$children[[j]]$gp$fill <- fills[k]
+  k <- k+1
+}
+grid::grid.draw(g)
+
+ggsave(g, dpi=300,width=10,height=8,units="in", filename = "C:/Users/kkmgo/Dropbox/THESIS/Figures/HATCH2plot.png",  bg = "transparent")
+
+
+```
+
+```{r map of area}
+
+library(ggmap)
+library(googleway)
+library(RgoogleMaps)
+library(rnaturalearth)
+library(ggrepel)
+library(ggspatial)
+library(rworldmap)
+library(RColorBrewer)
+library(tmap)
+library(tmaptools)
+library(leaflet)
+library(sf)
+library(raster)
+library(tigris)
+library(cowplot)
+
+library(rnaturalearth)
+library(rnaturalearthdata)
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+class(world)
+
+# download the data 
+download.file("http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/physical/ne_10m_coastline.zip", 
+              destfile = 'coastlines.zip')
+
+# unzip the file
+unzip(zipfile = "coastlines.zip", 
+      exdir = 'ne-coastlines-10m')
+
+land <- st_read("C:/Users/kkmgo/Downloads/ne_10m_land/ne_10m_land.shp")
+
+coastlines <- st_read("ne-coastlines-10m/ne_10m_coastline.shp")
+#florida <- worldmap[worldmap$name == '',]
+
+polygons <- read.csv("C:/Users/kkmgo/Dropbox/THESIS/sjp_csb_polygons.csv",header=T)
+
+points <- read.csv("C:/Users/kkmgo/Dropbox/THESIS/sjp_csb_points.csv",header=T)
+
+points <- st_as_sfc(points)
+
+#polygons2 <- polygons %>% st_as_sf(coords=c('longtitude','latitude'))
+
+us_geo <- states(class = "sf")
+
+florida <- subset(us_geo,NAME %in% c("Florida","Georgia","Alabama"))
+
+ggplot()+geom_sf(data=florida)
+
+tm_shape(florida)+
+  tm_polygons()
+usa <- map_data("usa")
+
+sjp_zoom <- ggplot() +
+   geom_sf(data=land,fill="grey42")+
+  geom_sf(data = coastlines, fill="grey42",color="black",size=2) +
+  geom_point(data=points,aes(x=longitude, y= latitude, group=group, color=color),size=4)+
+  coord_sf(xlim = c(-85.8,-84.8), ylim = c(29.5,30), expand = FALSE)+
+  labs(x="Longitude",y="Latitude")+
+  scale_color_manual(values = c("coral","darkolivegreen4","steelblue3"),name="Location",labels=c("Rish","Salinas","EAFB-CSB"))+
+  #scale_color_discrete()+
+  #scale_fill_continuous(name="Zones")+
+  guides(alpha=FALSE,fill=FALSE)+
+  theme(panel.grid.major = element_line(color = "white", linetype = "dashed", 
+                                        size = 0.5), panel.background = element_rect(fill = "white"),axis.line = element_line(color="black"))+
+  theme(axis.title=element_text(size=14,family="Calibri"),axis.text = element_text(color="black",size=12,family="Calibri"),plot.margin = unit(c(1,1,1,1),"cm"))+
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)))+
+  theme(axis.title.x = element_text(margin = margin(t = 20, r = 0, b = 0, l = 0)))+
+  annotation_scale(location = "bl", width_hint = 0.5) +
+  annotation_north_arrow(location = "tl", which_north = "true", 
+                         pad_x = unit(.1, "in"), pad_y = unit(0.08, "in"),
+                         style = north_arrow_fancy_orienteering)+
+  theme(legend.title = element_text(colour="black", size=14,family = "Calibri", face="bold"), legend.text = element_text(size=12,family="Calibri")) +
+ theme(legend.background = element_rect(fill="white",
+                                        size=1, linetype="solid", 
+                                        colour ="black"))+
+  theme(legend.key.width = unit(2,"line"))+
+  theme(legend.key.size = unit(2,"line"))+
+  #theme(plot.margin = margin(20,20,20,20))
+  theme(legend.position = "bottom")
+sjp_zoom
+
+legend <- get_legend(sjp_zoom + theme(legend.position = "bottom"))
+
+
+
+sjp_long <- c(-85.8,-84.8,-84.8,-85.8)
+sjp_lat <- c(29.5,29.5,30,30)
+
+sjp <- cbind(sjp_lat,sjp_long)
+
+sjp <- as.data.frame(sjp)
+
+
+florida_map <- ggplot()+
+  geom_sf(data=land,fill="grey42")+
+  geom_sf(data = coastlines, fill="grey42",color="black",size=1)+
+  coord_sf(xlim = c(-87,-79), ylim = c(23.5,31), expand = FALSE)+
+  labs(x="Longitude",y="Latitude")+
+  geom_polygon(data=sjp, aes(x=sjp_long,y=sjp_lat),fill="red",color="red",size=2)+
+  theme(panel.grid.major = element_line(color = "white", linetype = "dashed", 
+                                        size = 0.5), panel.background = element_rect(fill = "white"),axis.line = element_line(color="black"))+
+  theme(plot.background =
+          element_rect(fill = "white", linetype = 1,
+                       size = 0.3, colour = "black"),
+        axis.line=element_blank(),
+        axis.text.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks=element_blank(),
+        axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position="none")
+florida_map
+
+
+total_map <- ggdraw() +
+  draw_plot(sjp_zoom, 0,0,1,1) +
+  draw_plot(florida_map, 0.75,0.70,0.25,0.25)
+  #draw_grob(legend, .65, 0, .65, 1)
+total_map
+
+
+
+plot_grid(total_map,legend,rel_widths = c(2,0.4))
+
+citation(package = "nlme")
+
+```
+
+
+
+
