@@ -142,9 +142,6 @@ ci_totaldata <- unique(ci_totaldata)
 
 total.data.means <- merge(total.data.means,ci_totaldata,by=c("location","zone"))
 
-total.data <- total.data %>% arrange(date)
-
-total.data2 <- total.data %>% group_by(date,time,location,tide, zone) %>% summarise(efflux=mean(efflux))
 #total.data.sums <- total.data.sums %>% group_by(location) %>% summarize(tre=sum(mean.eff))
 
 ```
@@ -161,7 +158,7 @@ library(rstatix)
 library(ggpubr)
 library(emmeans)
 
-leveneTest(efflux~location,data = total.data2)
+leveneTest(efflux~location,data = total.data)
 
 shapiro.test(subset(total.data,location=="EAFB"& zone=="berm")$efflux)
 
@@ -214,7 +211,7 @@ summary(lme_littoral)
 anova(lme_littoral)
 emmeans(lme_littoral,list(pairwise ~ location), adjust = "tukey")#rish-salinas (0.0407)
 
-lm_berms <- lm(efflux~location,data = subset(total.data2,zone=="berm")) #SIG
+lm_berms <- lm(efflux~location,data = subset(total.data,zone=="berm")) #SIG
 summary(lm_berms)
 anova(lm_berms)
 emmeans(lm_berms, list(pairwise ~ location), adjust = "tukey")# SIG between Rish-Salinas (0.0051)
@@ -780,24 +777,6 @@ hatch14<- hatch14 %>%
   mutate(hatched = na_if(hatched, "N/A"))  %>%
   mutate(success = na_if(success, "N/A"))
 
-hatch14$laid <- as.numeric(hatch14$laid)
-hatch14$emerged <- as.numeric(hatch14$emerged)
-hatch14$hatched <- as.numeric(hatch14$hatched)
-
-hatch14 <- hatch14 %>% mutate(failed.h=laid-hatched) %>% mutate(failed.e=laid-emerged)
-
-detach(package:plyr)
-
-hatch14.totals<- hatch14 %>% group_by(location) %>% summarize(hatched=sum(hatched),emerged=sum(emerged),laid=sum(laid))
-
-hatch14.totals <- hatch14.totals %>% mutate(emerge.success=emerged/laid*100,hatch.success=hatched/laid*100,failed.h=laid-hatched,failed.e=laid-emerged)
-
-hatch14.totals.plot <- hatch14.totals %>% select(c(location,emerged,failed.e))
-
-hatch14.totals.plot <- hatch14.totals.plot %>% gather("hatched","failed.e",-"location")
-
-names(hatch14.totals.plot) <- c("beach","survivorship","counts")
-
 class(hatch14$laid)
 
 hatch14$laid <- as.numeric(hatch14$laid)
@@ -805,8 +784,6 @@ hatch14$emerged <- as.numeric(hatch14$emerged)
 hatch14$hatched <- as.numeric(hatch14$hatched)
 hatch14$success <- as.numeric(hatch14$success)
 
-hatch14 <- hatch14 %>% mutate(hatch.success=hatched/laid*100)
-hatch14 <- hatch14 %>% mutate(emergence.success=emerged/laid*100)
 #hatch14 <- hatch14 %>% drop_na()
 
 hatch14 <- hatch14[!is.na(hatch14$laid),]
@@ -823,17 +800,14 @@ hatch14%>%
 
 #rish_13 %>% summarise(sum.laid=sum(laid),sum.emerged=sum(emerged))
 
-hatchdata_2014 <- hatch14 %>% filter(year==2014)
+
 
 #write.csv(rish_13,"C:/users/kkmgo/Dropbox/rish_13.csv")
 
-yearly_hatch <- hatch14 %>% group_by(location,year,zone) %>% summarize(total=sum(laid),emerged=sum(emerged),hatched=sum(hatched),mean.emergesuccess=mean(emergence.success),mean.hatchsuccess=mean(hatch.success)) 
-yearly_hatch <- yearly_hatch %>% mutate(total.emergsuccess=emerged/total*100)
-yearly_hatch <- yearly_hatch %>% mutate(total.hatchsuccess=hatched/total*100)
+yearly_hatch <- hatch14 %>% group_by(location,year,zone) %>% summarize(total=sum(laid),emerged=sum(emerged),mean.success=mean(success)) 
+yearly_hatch <- yearly_hatch %>% mutate(total.success=emerged/total*100)
+yearly_hatch <- yearly_hatch%>% mutate(failed=total-emerged)
 
-yearly_hatch <- yearly_hatch%>% mutate(failed.h=total-hatched) %>% mutate(failed.e=total-emerged)
-
-overall_hatch <- hatch14 %>% group_by(location) %>% summarize(total=sum(laid),hatched=sum(hatched),emerged=sum(emerged)) %>% mutate(hatch.success= hatched/total*100) %>% mutate(emerge.success=emerged/total*100) 
 
 mean_efflux <- total.data.means %>% mutate(location=ifelse(location=="SJP-Rish","Rish",as.character(location)))
 
@@ -856,14 +830,12 @@ yearly_hatch <- merge(yearly_hatch,tre_efflux,by=c("location","zone"))
 
 
 
-hatch14.totals
+
 
 #eafb, rish,sal -- hatch,fail
 hatch14_freq <- matrix(c(1373,914,1512,1843,784,1301),nrow=2,ncol=3)
 
 chisq.test(hatch14_freq)
-
-
 
 #among zones on each beach
 eafb14_freq <- matrix(c(302,305,1071,609),nrow=2,ncol=2)
@@ -887,49 +859,31 @@ detach(package:plyr)
 library(dplyr)
 yearly_hatch %>% group_by(location,year) %>% summarise(emerged=sum(emerged),failed=sum(failed))
 
-zone_bybeach_byyear<- yearly_hatch %>% group_by(location,zone,year,mean.eff,tre.zone,upper,lower) %>% summarize(total=sum(total),emerged=sum(emerged),hatched=sum(hatched),failed=sum(failed))
+zone_bybeach_byyear<- yearly_hatch %>% group_by(location,zone,year,mean.eff,tre.zone,upper,lower) %>% summarize(total=sum(total),emerged=sum(emerged),failed=sum(failed))
 
-print(zone_bybeach_byyear %>% filter(year==2011))
-
-hatchdata_byzone<- yearly_hatch %>% group_by(zone) %>% summarize(hatched=sum(hatched),failed=sum(failed),total=sum(total)) %>% mutate(hatch.success=hatched/total*100)
-
-hatchdata_byzone_byyear<- yearly_hatch %>% group_by(zone,year) %>% summarize(hatched=sum(hatched),failed=sum(failed),total=sum(total)) %>% mutate(hatch.success=hatched/total*100)
-
-hatchdata_bybeach_byyear<- yearly_hatch %>% group_by(location,year) %>% summarize(hatched=sum(hatched),failed=sum(failed),total=sum(total)) %>% mutate(hatch.success=hatched/total*100)
-
-print(hatchdata_byzone)
-
-zone_matrix <- matrix(c(1550,3056,6752,6680,827,988),nrow=2,ncol=3)
-print(zone_matrix)
+zone_matrix <- matrix(c(805,1010,1467,3139,6558,6874),nrow=2,ncol=3)
 chisq.test(zone_matrix)
 
-print(hatchdata_byzone_byyear %>% filter(year==2011))
 
-zone_mat_2011 <- matrix(c(489,606,104,544,326,786),nrow = 2,ncol = 3)
-chisq.test(zone_mat_2011) #SIG
+zone_mat_2011 <- matrix(c(489,606,80,568,326,786),nrow = 2,ncol = 3)
+chisq.test(zone_mat_2011)
 
-print(hatchdata_byzone_byyear %>% filter(year==2012))
-zone_mat_2012 <- matrix(c(66,244,1243,2063),nrow = 2,ncol = 2)
-chisq.test(zone_mat_2012) #SIG
+zone_mat_2012 <- matrix(c(47,263,1208,2098),nrow = 2,ncol = 2)
+chisq.test(zone_mat_2012)
 
-print(hatchdata_byzone_byyear %>% filter(year==2013))
-zone_mat_2013 <- matrix(c(119,48,618,847,2399,1624),nrow = 2,ncol = 3)
-chisq.test(zone_mat_2013)#sig
+zone_mat_2013 <- matrix(c(119,48,602,863,2290,1744),nrow = 2,ncol = 3)
+chisq.test(zone_mat_2013)
 
-print(hatchdata_byzone_byyear %>% filter(year==2014))
-zone_mat_2014 <- matrix(c(153,90,828,1665,2784,2207),nrow = 2,ncol = 3)
-chisq.test(zone_mat_2014) #SIG
+zone_mat_2014 <- matrix(c(150,93,785,1708,2734,2257),nrow = 2,ncol = 3)
+chisq.test(zone_mat_2014)
 
-print(hatchdata_bybeach_byyear %>% filter(year==2011))
-beach_mat_2011 <- matrix(c(15,662,685,344,219,930),nrow = 2,ncol = 3)
+beach_mat_2011 <- matrix(c(15,662,661,368,219,930),nrow = 2,ncol = 3)
 chisq.test(beach_mat_2011)
 
-print(hatchdata_bybeach_byyear %>% filter(year==2012))
-beach_mat_2012 <- matrix(c(0,674,1011,961,298,672),nrow = 2,ncol = 3)
+beach_mat_2012 <- matrix(c(0,674,996,976,259,711),nrow = 2,ncol = 3)
 chisq.test(beach_mat_2012)
 
-print(hatchdata_bybeach_byyear %>% filter(year==2013))
-beach_mat_2013 <- matrix(c(483,926,1702,554,951,1039),nrow = 2,ncol = 3)
+beach_mat_2013 <- matrix(c(480,929,1668,588,863,1127),nrow = 2,ncol = 3)
 chisq.test(beach_mat_2013)
 
 ##zone
@@ -949,7 +903,7 @@ zone_sums<- yearly_hatch %>% group_by(zone) %>% summarize(total=sum(total),emerg
 
 yearly_hatch %>% group_by(location) %>% summarize(total=sum(total),emerged=sum(emerged)) %>% mutate(total.success=emerged/total*100)
 
-hatch14%>% 
+yearly_hatch%>% 
   group_by(zone) %>% 
   summarise(record_count = n())
 
@@ -960,15 +914,11 @@ hatch14%>%
 
 library(nlme)
 
-hatchlm <- lm(hatched/total~zone*location*year,data=yearly_hatch)
+hatchlm <- lm(total.success~mean.eff*zone*location,data=yearly_hatch)
 summary(hatchlm)
 anova(hatchlm)
 emmeans(hatchlm, list(pairwise ~ location), adjust = "tukey")
 
-hatchlm2 <- lm(hatched/total~zone*location*year*mean.eff,data=yearly_hatch)
-summary(hatchlm2)
-anova(hatchlm2)
-emmeans(hatchlm2, list(pairwise ~ location), adjust = "tukey")
 
 library(lme4)
 library(emmeans)
@@ -989,51 +939,43 @@ library(dplyr)
 
 #print(table)
 
-obsfreq <- matrix(c(1868,2125,4837,3179,4069,3775),nrow=3,ncol=2) # emergence success
-
-obsfreq2 <- matrix(c(1900,4932,2297,3147,3680,3897),nrow=3,ncol=2)#hatching success
+obsfreq <- matrix(c(1868,2125,4837,3179,4069,3775),nrow=3,ncol=2)
 
 colnames(obsfreq)= c("hatched","failed")
-rownames(obsfreq)=c("EAFB","Rish","Salinas")
+rownames(obsfreq)=c("EAFB","Salinas","Rish")
 
 print(obsfreq)
 
 chisq.test(obsfreq) #sig x^2=849.761 and df=2 and p-val < 2.2 e-16
 
-chisq.test(hatch14.totals)
-
 hatch_totals <- hatchdata %>% group_by(beach) %>% summarise(totalcount=sum(counts))
 survivors <- hatchdata %>% filter(survivorship=="hatched")
 
-#hatch_prop <- merge(hatch_totals,survivors,by="beach")
+hatch_prop <- merge(hatch_totals,survivors,by="beach")
 
-#hatch_prop<- hatch_prop %>% mutate(prop.survived=counts/totalcount)
+hatch_prop<- hatch_prop %>% mutate(prop.survived=counts/totalcount)
 
-# <- hatchdata %>% filter(survivorship=="failed")
-#names(failed) <- c("beach","failed count","survivorship code")
+failed <- hatchdata %>% filter(survivorship=="failed")
+names(failed) <- c("beach","failed count","survivorship code")
 
-#hatch_prop <- merge(hatch_prop,failed,by="beach")
+hatch_prop <- merge(hatch_prop,failed,by="beach")
 
-#hatch_prop <- hatch_prop %>% mutate(prop.failed=`failed count`/totalcount)
+hatch_prop <- hatch_prop %>% mutate(prop.failed=`failed count`/totalcount)
 
-#hatch_prop <- hatch_prop %>% mutate
+hatch_prop <- hatch_prop %>% mutate
 
-#chisq.test(hatch_prop$prop.survived)
+chisq.test(hatch_prop$prop.survived)
 
-overall_hatch <- overall_hatch %>% mutate(failed=total-hatched)
-
-print(overall_hatch)
-
-obs_sal_eafb <- matrix(c(2125,1868,4069,3179), nrow=2,ncol=2)#EMERGENCE VALUES ENTERED
+obs_sal_eafb <- matrix(c(2125,4069,1868,3179), nrow=2,ncol=2)
 print(obs_sal_eafb)
 
-chisq.test(obs_sal_eafb)#SIGNIFICANT FOR EMERGENCE SUCCESS, BUT NOT HATCH SUCCESS
+chisq.test(obs_sal_eafb)#not sig
 
-obs_sal_rish <- matrix(c(2297,4932,3897,3680),nrow=2,ncol=2)
+obs_sal_rish <- matrix(c(2125,4069,4837,3775),nrow=2,ncol=2)
 
 chisq.test(obs_sal_rish)#sig
 
-obs_rish_eafb <- matrix(c(4932,1900,3680,3147),nrow=2,ncol=2)
+obs_rish_eafb <- matrix(c(4837,3775,1868,3179),nrow=2,ncol=2)
 
 chisq.test(obs_rish_eafb)#sig
 
@@ -1061,16 +1003,11 @@ chisq.test(table)
 ```{r}
 
 library(ggplot2)
-hatchdata$beach <- factor(hatchdata$beach, levels = c("EAFB", "Rish","Salinas"),
+hatchdata$beach <- factor(hatchdata$beach, levels = c("EAFB-CSB", "Rish","Salinas"),
                   labels = c("EAFB", "Rish","Salinas")
                   )
 
-hatch14.totals.plot$beach <- factor(hatch14.totals.plot$beach, levels = c("EAFB", "Rish","Salinas"),
-                  labels = c("EAFB", "Rish","Salinas")
-                  )
-hatch14.totals$counts <- as.numeric(hatch14.totals$counts)
-
-hatch.plot<-ggplot(hatch14.totals.plot,aes(x=survivorship,y=counts,fill=survivorship))+
+hatch.plot<-ggplot(hatchdata,aes(x=survivorship,y=counts,fill=survivorship))+
   geom_bar(stat='identity')+
   facet_wrap(.~beach)+
   scale_fill_manual(name="Survivorship",labels=c("Failed","Hatched"),values=c("grey10","grey60"))+
